@@ -7,21 +7,18 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import android.graphics.RectF
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
-import android.widget.ImageView
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.bsse6.cvasmobile.MainActivity
 import com.bsse6.cvasmobile.R
 import com.bsse6.cvasmobile.util.NotifyChannel
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.tensorflow.lite.DataType
@@ -42,6 +39,7 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
         @SuppressLint("StaticFieldLeak")
         private lateinit var mContext : Context
 
+        val bitmapChannel = Channel<Bitmap>(1)
         //Agent MODES
         const val EXPLORE = 1
         const val TRACKING = 2
@@ -115,6 +113,28 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
 
 //                        handle the rows first i.e. top, middle, bottom
                         when {
+                            topCoordinate  <= partitionFrameSize && bottomCoordinate <= partitionFrameSize -> {
+                                //very close objects
+                                when{
+                                    leftCoordinate <= partitionFrameSize && rightCoordinate <= partitionFrameSize -> {
+                                        speakOut("$detectedName upfront")
+                                    }
+                                    leftCoordinate <= partitionFrameSize -> {
+//                                        objects on the left
+                                        speakOut("$detectedName on the left")
+                                    }
+                                    rightCoordinate <= partitionFrameSize -> {
+//                                        objects on the right
+                                        speakOut("$detectedName on the right")
+
+                                    }
+                                    else -> {
+//                                        objects in the centre
+                                        speakOut("$detectedName in front")
+                                    }
+                                }
+                            }
+
                             topCoordinate  <= partitionFrameSize -> {
 //                                objects at top of the screen
                                 when{
@@ -153,9 +173,10 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
                                     }
                                 }
                             }
-                            else ->{
-//                                objects in the middle
+                            else -> {
+                                //                                objects in the middle
                                 when{
+
                                     leftCoordinate <= partitionFrameSize -> {
 //                                        objects on the left
                                         speakOut("$detectedName on the left")
@@ -331,24 +352,8 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
             val bmp = BitmapFactory.decodeByteArray(imageBytes,0,imageBytes.size)
             bmp?.let{ image ->
 
-                val matrix = Matrix()
-//                      matrix.postRotate(90F)
-                val bmp_transpose = Bitmap.createBitmap(image, 0, 0, image.width, image.height, matrix, true)
-                val imageRatio = bmp_transpose.height.toFloat() / bmp_transpose.width.toFloat()
-
-                try{
-                    Handler(Looper.getMainLooper()).post {
-                        val activity = mContext as MainActivity
-                        val previewScreen = activity.findViewById<ImageView>(R.id.preview_screen)
-                        val viewWidth = previewScreen.width
-                        val dispViewH = (viewWidth * imageRatio).toInt()
-                        previewScreen.setImageBitmap(Bitmap.createScaledBitmap(bmp_transpose,viewWidth,dispViewH, false))
-                    }
-
-                }catch (e: Exception) {
-                    Log.e(TAG,"Error processing image",e)
-                }
                 scope.launch(Dispatchers.IO) {
+                    bitmapChannel.send(image) //send image to channel
                     if(isActive) {
                         runModel(image)
                     }
@@ -412,7 +417,7 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         isDaemonRunning = false
         mWebSocketClient.close()
-
+        bitmapChannel.close()
         // Shutdown TTS
         tts.stop()
         tts.shutdown()

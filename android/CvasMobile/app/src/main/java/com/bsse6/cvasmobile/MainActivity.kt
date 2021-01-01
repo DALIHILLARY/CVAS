@@ -1,11 +1,19 @@
 package com.bsse6.cvasmobile
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.viewModelScope
 import com.bsse6.cvasmobile.services.DaemonService
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -16,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var backgroundButton : ImageButton
     private lateinit var exploreButton : ImageButton
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -25,6 +34,28 @@ class MainActivity : AppCompatActivity() {
         backgroundButton = findViewById(R.id.switch_background)
         exploreButton = findViewById(R.id.exploratory_option)
 
+        val viewModel: MainActivityViewModel by viewModels()
+
+        viewModel.viewModelScope.launch {
+
+            viewModel.getBitmap().collectLatest {image ->
+                val matrix = Matrix()
+//                      matrix.postRotate(90F)
+                val bmp_transpose = Bitmap.createBitmap(image, 0, 0, image.width, image.height, matrix, true)
+                val imageRatio = bmp_transpose.height.toFloat() / bmp_transpose.width.toFloat()
+
+                try{
+                        val previewScreen = this@MainActivity.findViewById<ImageView>(R.id.preview_screen)
+                        val viewWidth = previewScreen.width
+                        val dispViewH = (viewWidth * imageRatio).toInt()
+                        previewScreen.setImageBitmap(Bitmap.createScaledBitmap(bmp_transpose,viewWidth,dispViewH, false))
+
+                }catch (e: Exception) {
+                    Log.e(TAG,"Error processing image",e)
+                }
+            }
+        }
+
         //set click listeners here
         settingsButton.setOnClickListener {
 
@@ -32,19 +63,26 @@ class MainActivity : AppCompatActivity() {
         navigationButton.setOnClickListener {
             if(!DaemonService.isDaemonRunning){
                 DaemonService.startService(this, DaemonService.NAVIGATION)
+                Toast.makeText(this,"Navigation mode on",Toast.LENGTH_LONG).show()
             }else if(DaemonService.getDaemon() == DaemonService.NAVIGATION){
                 DaemonService.stopService(this)
+                Toast.makeText(this,"Navigation mode stopped",Toast.LENGTH_LONG).show()
             }else{
                 DaemonService.setDaemonMode(DaemonService.NAVIGATION)
+                Toast.makeText(this,"Navigation mode on",Toast.LENGTH_LONG).show()
             }
         }
         trackingButton.setOnClickListener {
             if(!DaemonService.isDaemonRunning){
                 DaemonService.startService(this, DaemonService.TRACKING)
+                Toast.makeText(this,"Tracking Mode on",Toast.LENGTH_LONG).show()
             }else if(DaemonService.getDaemon() == DaemonService.TRACKING){
                 DaemonService.stopService(this)
+                Toast.makeText(this,"Tracking mode stopped",Toast.LENGTH_LONG).show()
             }else{
                 DaemonService.setDaemonMode(DaemonService.TRACKING)
+                Toast.makeText(this,"Tracking Mode on",Toast.LENGTH_LONG).show()
+
             }
         }
         backgroundButton.setOnClickListener {
@@ -60,10 +98,14 @@ class MainActivity : AppCompatActivity() {
         exploreButton.setOnClickListener {
             if(!DaemonService.isDaemonRunning){
                 DaemonService.startService(this, DaemonService.EXPLORE)
+                Toast.makeText(this,"Explore mode on",Toast.LENGTH_LONG).show()
+
             }else if(DaemonService.getDaemon() == DaemonService.EXPLORE){
                 DaemonService.stopService(this)
+                Toast.makeText(this,"Explore mode stopped",Toast.LENGTH_LONG).show()
             }else{
                 DaemonService.setDaemonMode(DaemonService.EXPLORE)
+                Toast.makeText(this,"Explore mode on",Toast.LENGTH_LONG).show()
             }
         }
     }
