@@ -4,21 +4,26 @@ trigger = Pin(3, Pin.OUT)
 echo = Pin(2, Pin.IN)
 bazzer = Pin(4, Pin.OUT)
 
-#set threshhold distance
-trigger.low()
-utime.sleep_us(2)
-trigger.high()
-utime.sleep_us(5)
-trigger.low()
+initialised = True
 
-while echo.value() == 0:
-  signaloff = utime.ticks_us()
-while echo.value() == 1:
-  signalon = utime.ticks_us()
-  
-timepassed = signalon - signaloff
-threshold_distance = (timepassed * 0.0343) / 2
-control_distance = threshold_distance+5
+if intialised:
+    #set threshhold distance
+    trigger.low()
+    utime.sleep_us(2)
+    trigger.high()
+    utime.sleep_us(5)
+    trigger.low()
+
+    while echo.value() == 0:
+      signaloff = utime.ticks_us()
+    while echo.value() == 1:
+      signalon = utime.ticks_us()
+      
+    timepassed = signalon - signaloff
+    threshold_distance = (timepassed * 0.0343) / 2
+    control_distance = threshold_distance+5
+    
+    initialised = False
 
 def ultra():
     
