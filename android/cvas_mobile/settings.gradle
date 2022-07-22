@@ -1,3 +1,0 @@
-include ':ESP32CamAI'
-rootProject.name='ESP32CamAI'
-include ':openCVLibrary348'
