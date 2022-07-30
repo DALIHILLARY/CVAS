@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Cvas Mobile</string>
+    <string name="options_menu">Options Menu</string>
+    <string name="settings_option">settings option</string>
+    <string name="see_everything_around_you">See everything around you</string>
+    <string name="give_me_directions">Give me directions</string>
+    <string name="track_a_specific_object">Track a specific Object</string>
+    <string name="send_application_to_background">Send Application to background</string>
+</resources>
