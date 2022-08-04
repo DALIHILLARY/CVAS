@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         }
         exploreButton.setOnClickListener {
-            if(!ExploratoryService.isServiceRunning){
+            if(!ExploratoryService.isExploratoryRunning){
                 ExploratoryService.startService(this)
             }else{
                 ExploratoryService.stopService(this)
