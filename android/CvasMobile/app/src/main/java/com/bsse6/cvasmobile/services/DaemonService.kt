@@ -20,17 +20,13 @@ import androidx.core.content.ContextCompat
 import com.bsse6.cvasmobile.MainActivity
 import com.bsse6.cvasmobile.R
 import com.bsse6.cvasmobile.util.NotifyChannel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
-import org.tensorflow.lite.task.core.BaseOptions
 import org.tensorflow.lite.task.vision.detector.ObjectDetector
 import java.net.URI
 import java.nio.ByteBuffer
@@ -43,6 +39,12 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
         private val uri = URI("ws://192.168.4.1:86/")
         @SuppressLint("StaticFieldLeak")
         private lateinit var mContext : Context
+
+        //Agent MODES
+        private const val EXPLORE = 1
+        private const val TRACk = 2
+        private const val NAVIGATION = 3
+
         fun startService( context: Context){
             mContext = context
             if(!isExploratoryRunning){
@@ -72,7 +74,7 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
     /**
      * Run inference using the ML model
      */
-    private fun runModel(image : Bitmap) {
+    private suspend fun runModel(image : Bitmap) {
         if(!isModelRunning) {
             isModelRunning = true //capture the flag
             Log.e(TAG,System.currentTimeMillis().toString())
@@ -103,7 +105,6 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
         }
 
         override fun onMessage(message: ByteBuffer) {
-            Log.i(TAG,"NEW IMAGE RECEIVED")
             val imageBytes = message.array()
             //create a bitmap
             val bmp = BitmapFactory.decodeByteArray(imageBytes,0,imageBytes.size)
@@ -127,7 +128,9 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
                     Log.e(TAG,"Error processing image",e)
                 }
                 scope.launch(Dispatchers.IO) {
-                    runModel(image)
+                    if(isActive) {
+                        runModel(image)
+                    }
                 }
 
             }
@@ -150,7 +153,6 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
 
         val optionsBuilder =
             ObjectDetector.ObjectDetectorOptions.builder()
-                .setBaseOptions(BaseOptions.builder().useGpu().build())
                 .setScoreThreshold(0.6F)
                 .setMaxResults(6)
         objectDetector = ObjectDetector.createFromFileAndOptions(this, EXPLORATORY_MODEL,optionsBuilder.build())
@@ -186,6 +188,7 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         isExploratoryRunning = false
         mWebSocketClient.close()
+        scope.cancel()
         objectDetector.close()
 
         // Shutdown TTS
@@ -194,7 +197,6 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
         startedTtsEngine = true
 
         super.onDestroy()
-//        TODO("Stop everything")
     }
     override fun onBind(p0: Intent?): IBinder? {
         return null
