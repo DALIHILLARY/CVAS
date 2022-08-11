@@ -1,9 +1,11 @@
 package com.bsse6.cvasmobile
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.ImageButton
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.bsse6.cvasmobile.services.ExploratoryService
+import com.bsse6.cvasmobile.services.DaemonService
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,19 +30,40 @@ class MainActivity : AppCompatActivity() {
 
         }
         navigationButton.setOnClickListener {
-
+            if(!DaemonService.isDaemonRunning){
+                DaemonService.startService(this, DaemonService.NAVIGATION)
+            }else if(DaemonService.getDaemon() == DaemonService.NAVIGATION){
+                DaemonService.stopService(this)
+            }else{
+                DaemonService.setDaemonMode(DaemonService.NAVIGATION)
+            }
         }
         trackingButton.setOnClickListener {
-
+            if(!DaemonService.isDaemonRunning){
+                DaemonService.startService(this, DaemonService.TRACKING)
+            }else if(DaemonService.getDaemon() == DaemonService.TRACKING){
+                DaemonService.stopService(this)
+            }else{
+                DaemonService.setDaemonMode(DaemonService.TRACKING)
+            }
         }
         backgroundButton.setOnClickListener {
+            Toast.makeText(this,"CVAS in now running in background",Toast.LENGTH_LONG).show()
+            //Send application to background
+            val home = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
 
+            }
+            startActivity(home)
         }
         exploreButton.setOnClickListener {
-            if(!ExploratoryService.isExploratoryRunning){
-                ExploratoryService.startService(this)
+            if(!DaemonService.isDaemonRunning){
+                DaemonService.startService(this, DaemonService.EXPLORE)
+            }else if(DaemonService.getDaemon() == DaemonService.EXPLORE){
+                DaemonService.stopService(this)
             }else{
-                ExploratoryService.stopService(this)
+                DaemonService.setDaemonMode(DaemonService.EXPLORE)
             }
         }
     }

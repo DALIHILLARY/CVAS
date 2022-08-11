@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -31,35 +32,44 @@ import org.tensorflow.lite.task.vision.detector.ObjectDetector
 import java.net.URI
 import java.nio.ByteBuffer
 import java.util.*
+import java.util.Collections.min
 
-class ExploratoryService : Service(), TextToSpeech.OnInitListener {
+class DaemonService : Service(), TextToSpeech.OnInitListener {
     companion object {
         private const val EXPLORATORY_MODEL = "efficientdet_lite0.tflite"
-        var isExploratoryRunning = false
+        var isDaemonRunning = false
         private val uri = URI("ws://192.168.4.1:86/")
         @SuppressLint("StaticFieldLeak")
         private lateinit var mContext : Context
 
         //Agent MODES
-        private const val EXPLORE = 1
-        private const val TRACk = 2
-        private const val NAVIGATION = 3
+        const val EXPLORE = 1
+        const val TRACKING = 2
+        const val NAVIGATION = 3
 
-        fun startService( context: Context){
+        private var runningMode = 0
+
+        fun startService( context: Context,daemonMode: Int){
             mContext = context
-            if(!isExploratoryRunning){
-                isExploratoryRunning = true
-                val startIntent = Intent(context, ExploratoryService::class.java)
+            if(!isDaemonRunning){
+                isDaemonRunning = true
+                val startIntent = Intent(context, DaemonService::class.java).apply{
+                    putExtra("mode", daemonMode)
+                }
                 ContextCompat.startForegroundService(context,startIntent)
             }
         }
 
         fun stopService(context: Context){
             mContext = context
-            isExploratoryRunning = false
-            val stopIntent = Intent(context, ExploratoryService::class.java)
+            isDaemonRunning = false
+            val stopIntent = Intent(context, DaemonService::class.java)
             context.stopService(stopIntent)
         }
+        fun setDaemonMode(daemonMode: Int) {
+            runningMode = daemonMode
+        }
+        fun getDaemon() = runningMode
     }
     private val TAG = javaClass.simpleName
     private lateinit var objectDetector: ObjectDetector
@@ -72,23 +82,234 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
     private val scope = CoroutineScope(job + Dispatchers.Default)
 
     /**
+     * Speak the input string
+     * @param "text"
+     */
+    private fun speakOut(text : String) {
+        if(startedTtsEngine) {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null,"")
+        }
+    }
+    /**
      * Run inference using the ML model
      */
     private suspend fun runModel(image : Bitmap) {
         if(!isModelRunning) {
             isModelRunning = true //capture the flag
-            Log.e(TAG,System.currentTimeMillis().toString())
             tensorImage.load(image)
             tensorImage = imageProcessor.process(tensorImage)
             val results = objectDetector.detect(tensorImage)
-            Log.e(TAG,System.currentTimeMillis().toString())
-            results.forEach {
-                if(startedTtsEngine) {
-                    tts.speak(it.categories[0].label, TextToSpeech.QUEUE_FLUSH, null,"")
+
+//            Choose a particular daemon mode to run
+            when(runningMode) {
+                TRACKING -> {
+                    val partitionFrameSize = (320 / 3).toFloat()
+
+                    results.forEach {   detected ->
+                        val detectedFrame = detected.boundingBox
+                        val detectedName = detected.categories[0].label
+                        val rightCoordinate = 320 - detectedFrame.right // relative to the right of the frame
+                        val leftCoordinate = detectedFrame.left
+                        val bottomCoordinate = 320 - detectedFrame.bottom // relative to the bottom of the frame
+                        val topCoordinate  = detectedFrame.top
+
+//                        handle the rows first i.e. top, middle, bottom
+                        when {
+                            topCoordinate  <= partitionFrameSize -> {
+//                                objects at top of the screen
+                                when{
+                                    leftCoordinate <= partitionFrameSize -> {
+//                                        objects on the left
+                                        speakOut("$detectedName in the top left")
+                                    }
+                                    rightCoordinate <= partitionFrameSize -> {
+//                                        objects on the right
+                                        speakOut("$detectedName in the top right")
+                                    }
+                                    else -> {
+//                                        objects in the centre
+                                        speakOut("$detectedName at the top")
+
+                                    }
+                                }
+                            }
+                            bottomCoordinate <= partitionFrameSize -> {
+//                                objects at bottom of the screen
+                                when{
+                                    leftCoordinate <= partitionFrameSize -> {
+//                                        objects on the left
+                                        speakOut("$detectedName in the bottom left")
+
+                                    }
+                                    rightCoordinate <= partitionFrameSize -> {
+//                                        objects on the right
+                                        speakOut("$detectedName in the bottom right")
+
+                                    }
+                                    else -> {
+//                                        objects in the centre
+                                        speakOut("$detectedName at the bottom")
+
+                                    }
+                                }
+                            }
+                            else ->{
+//                                objects in the middle
+                                when{
+                                    leftCoordinate <= partitionFrameSize -> {
+//                                        objects on the left
+                                        speakOut("$detectedName on the left")
+                                    }
+                                    rightCoordinate <= partitionFrameSize -> {
+//                                        objects on the right
+                                        speakOut("$detectedName on the right")
+
+                                    }
+                                    else -> {
+//                                        objects in the centre
+                                        speakOut("$detectedName in front")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                Log.e("prediction", it.toString())
+                EXPLORE -> {
+                    results.forEach {
+                        if(startedTtsEngine) {
+                            tts.speak(it.categories[0].label, TextToSpeech.QUEUE_FLUSH, null,"")
+                        }
+                        Log.e("prediction", it.toString())
+                    }
+                }
+                NAVIGATION -> {
+//                    TODO("Divide the object rectf in 3 section frames check frames")
+//                    get area in each frame
+//                    avoid all with object with biggest obstacle area
+//                    consider some objects like doors stairs and any that you can walk through, tell the person about it and its location
+//                    tell person about closest obstacle and location
+
+                    val safeObjects = listOf("door","staircase","corridor","bottle")
+                    val partitionFrameSize = (320 / 3).toFloat()
+
+                    val firstPartition = RectF(0f, 0f, partitionFrameSize, 320f)
+                    var firstOccupiedArea = 0f
+                    val secondPartition = RectF(partitionFrameSize + 1, 0f, partitionFrameSize * 2, 320f)
+                    var secondOccupiedArea = 0f
+                    val thirdPartition = RectF((partitionFrameSize * 2) + 1, 0f, partitionFrameSize * 3, 320f)
+                    var thirdOccupiedArea = 0f
+
+                    results.forEach { detected ->
+                        scope.launch{
+                            val detectedFrame = detected.boundingBox
+                            val detectedName = detected.categories[0].label
+                            val rightCoordinate = detectedFrame.right
+                            val leftCoordinate = detectedFrame.left
+
+//                            find the partition the detected item belongs and sum the areas
+
+                            when {
+                                leftCoordinate <= firstPartition.right && rightCoordinate <= firstPartition.right -> {
+
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName on your far left")
+
+                                    }else {
+                                        // get area occupied in first partition
+                                        firstOccupiedArea += detectedFrame.height() * detectedFrame.width()
+                                    }
+
+                                }
+                                leftCoordinate <= firstPartition.right && rightCoordinate  >= secondPartition.left -> {
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName on your left")
+
+                                    }else {
+//                                    get area occupied in 1st and 2nd partitions
+                                        firstOccupiedArea += detectedFrame.height() * (firstPartition.right - leftCoordinate)
+                                        secondOccupiedArea += detectedFrame.height() * (rightCoordinate - secondPartition.left)
+                                    }
+                                }
+                                leftCoordinate <= firstPartition.right && rightCoordinate >= thirdPartition.left -> {
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName closely upfront")
+
+                                    }else {
+
+//                                    get areas occupied in each partition
+                                        firstOccupiedArea += detectedFrame.height() * (firstPartition.right - leftCoordinate)
+                                        secondOccupiedArea += detectedFrame.height() * partitionFrameSize
+                                        thirdOccupiedArea += detectedFrame.height() * (rightCoordinate - thirdPartition.left)
+                                    }
+
+                                }
+                                leftCoordinate >= secondPartition.left && rightCoordinate < thirdPartition.left -> {
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName in front")
+
+                                    }else {
+//                                    get area occupied in second partition
+                                        secondOccupiedArea += detectedFrame.height() * detectedFrame.width()
+                                    }
+                                }
+                                leftCoordinate >= secondPartition.left && leftCoordinate <= secondPartition.right && rightCoordinate >= thirdPartition.left -> {
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName on your right")
+
+                                    }else {
+//                                    get area occupied in 2nd and 3rd
+                                        secondOccupiedArea += detectedFrame.height() * (secondPartition.right - leftCoordinate)
+                                        thirdOccupiedArea += detectedFrame.height() * (rightCoordinate - thirdPartition.left)
+                                    }
+                                }
+                                else -> {
+                                    if(detectedName in safeObjects) {
+                                        //Tell the user the location
+                                        speakOut("$detectedName on your far right")
+
+                                    }else {
+//                                    get area occupied in the third partition
+                                        thirdOccupiedArea += detectedFrame.height() * detectedFrame.width()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    val minOccupiedPartition = min(listOf(firstOccupiedArea, secondOccupiedArea, thirdOccupiedArea))
+                    Log.e(TAG,"$firstOccupiedArea  $secondOccupiedArea  $thirdOccupiedArea")
+                    if (minOccupiedPartition < (0.5 * 320 * 320)) {
+                        //get least occupied partition move forward if nothing in all partitions
+                        when(minOccupiedPartition) {
+                            secondOccupiedArea -> {
+                                speakOut("Move straight")
+                            }
+                            firstOccupiedArea -> {
+                                speakOut("Move left")
+                            }
+                            thirdOccupiedArea -> {
+                                speakOut("Move right")
+                            }
+                        }
+                    }else{
+                        speakOut("Pathway blocked")
+                    }
+
+                }
+                else -> {
+                    Log.e(TAG, "UNKNOWN DAEMON MODE")
+                }
             }
-            isModelRunning = false //release the model flag
+            if(isDaemonRunning) {
+                isModelRunning = false //release the model flag
+
+            }else {
+                objectDetector.close()
+            }
         }
     }
     /**
@@ -165,13 +386,16 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        isExploratoryRunning = true
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
-            NotifyChannel.createNotificationChannel(this@ExploratoryService)
+        intent?.let {
+            runningMode = it.getIntExtra("mode", 0)
         }
-        val notificationIntent = Intent(this@ExploratoryService, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this@ExploratoryService,0,notificationIntent,0)
-        val notification = NotificationCompat.Builder(this@ExploratoryService,NotifyChannel.CHANNEL_ID)
+        isDaemonRunning = true
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+            NotifyChannel.createNotificationChannel(this@DaemonService)
+        }
+        val notificationIntent = Intent(this@DaemonService, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this@DaemonService,0,notificationIntent,0)
+        val notification = NotificationCompat.Builder(this@DaemonService,NotifyChannel.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle("CVAS")
             .setContentText("Exploratory Service Running")
@@ -186,10 +410,8 @@ class ExploratoryService : Service(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
-        isExploratoryRunning = false
+        isDaemonRunning = false
         mWebSocketClient.close()
-        scope.cancel()
-        objectDetector.close()
 
         // Shutdown TTS
         tts.stop()
