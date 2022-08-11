@@ -282,7 +282,7 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
                     }
                     val minOccupiedPartition = min(listOf(firstOccupiedArea, secondOccupiedArea, thirdOccupiedArea))
                     Log.e(TAG,"$firstOccupiedArea  $secondOccupiedArea  $thirdOccupiedArea")
-                    if (minOccupiedPartition < (0.5 * 320 * 320)) {
+                    if (minOccupiedPartition < (0.5 * partitionFrameSize * 320)) {
                         //get least occupied partition move forward if nothing in all partitions
                         when(minOccupiedPartition) {
                             secondOccupiedArea -> {
