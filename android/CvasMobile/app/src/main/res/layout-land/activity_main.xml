@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MainActivity">
+    <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" app:layout_constraintEnd_toEndOf="parent"
+            android:scaleType="fitXY"
+            app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" android:id="@+id/preview_screen"/>
+    <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/options_menu"
+            android:layout_margin="10dp"
+            android:orientation="horizontal"
+            app:layout_constraintTop_toTopOf="parent" app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" android:layout_marginTop="8dp">
+        <ImageButton android:layout_width="60dp"
+                     android:layout_height="60dp"
+                     android:src="@drawable/cogwheel"
+                     android:id="@+id/settings_option"
+                     android:scaleType="centerCrop"
+                     android:background="?android:attr/selectableItemBackground"
+                     android:contentDescription="@string/settings_option"
+                     android:layout_marginBottom="3dp"/>
+        <ImageButton android:layout_width="60dp" android:layout_height="60dp"
+                     android:id="@+id/exploratory_option"
+                     android:src="@drawable/search"
+                     android:background="?android:attr/selectableItemBackground"
+                     android:scaleType="centerCrop"
+                     android:contentDescription="@string/see_everything_around_you"
+                     android:layout_margin="3dp"/>
+        <ImageButton android:layout_width="60dp" android:layout_height="60dp"
+                     android:id="@+id/navigation_option"
+                     android:src="@drawable/navigator"
+                     android:scaleType="centerCrop"
+                     android:background="?android:attr/selectableItemBackground"
+                     android:contentDescription="@string/give_me_directions"
+                     android:layout_marginBottom="3dp"/>
+        <ImageButton android:layout_width="60dp" android:layout_height="60dp"
+                     android:id="@+id/track_option"
+                     android:src="@drawable/target"
+                     android:scaleType="centerCrop"
+                     android:background="?android:attr/selectableItemBackground"
+                     android:contentDescription="@string/track_a_specific_object"
+                     android:layout_marginBottom="3dp"/>
+        <ImageButton android:layout_width="60dp" android:layout_height="60dp"
+                     android:id="@+id/switch_background"
+                     android:src="@drawable/hidden"
+                     android:scaleType="centerCrop"
+                     android:background="?android:attr/selectableItemBackground"
+                     android:contentDescription="@string/send_application_to_background"
+                     android:layout_marginBottom="3dp"/>
+
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
