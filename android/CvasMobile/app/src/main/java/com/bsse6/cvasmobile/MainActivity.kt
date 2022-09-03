@@ -58,7 +58,8 @@ class MainActivity : AppCompatActivity() {
 
         //set click listeners here
         settingsButton.setOnClickListener {
-
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
         }
         navigationButton.setOnClickListener {
             if(!DaemonService.isDaemonRunning){
