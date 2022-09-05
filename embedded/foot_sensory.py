@@ -40,7 +40,7 @@ while True:
    utime.sleep(1)
    if bazzer.value() == 1:
        bazzCounter += 1
-       if bazzCounter == 2:
+       if bazzCounter == 1:
            bazzer.low()
            bazzCounter = 0
    print(bazzCounter)
