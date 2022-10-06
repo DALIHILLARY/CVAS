@@ -77,6 +77,9 @@ class MainActivity : AppCompatActivity() {
             if(!DaemonService.isDaemonRunning){
                 DaemonService.startService(this, DaemonService.TRACKING)
                 Toast.makeText(this,"Tracking Mode on",Toast.LENGTH_LONG).show()
+
+                //update notification
+
             }else if(DaemonService.getDaemon() == DaemonService.TRACKING){
                 DaemonService.stopService(this)
                 Toast.makeText(this,"Tracking mode stopped",Toast.LENGTH_LONG).show()

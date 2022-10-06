@@ -36,41 +36,77 @@ class NetworkCardManager(context : Context) {
 
 
     //Wi-Fi Broadcaster
-    private val wifiScanReceiver = object : BroadcastReceiver(){
-        override fun onReceive(context: Context, intent: Intent) {
-            when(intent.action){
+    private lateinit var wifiScanReceiver : BroadcastReceiver
 
-                WifiManager.RSSI_CHANGED_ACTION -> {
-                    val rssi = intent.getIntExtra(WifiManager.EXTRA_NEW_RSSI,1)
-                    lowSignal = rssi < -80
+    /**
+     * Wifi listener function that takes in a callback function
+     */
+    fun wifiListener(callback: () -> Unit){
+        //if android version less than 10
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val wifiScanReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    when (intent.action) {
+                        WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
+                            val info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO) as NetworkInfo?
+                            info?.let {
+                                if (info.isConnected) {
+                                    hadConnection = true
+                                    //check if network begins with "bse"
+                                    val ssid = mWifiManager.connectionInfo.ssid
+                                    if (ssid.startsWith("bse")) {
+                                        //run callback function
+                                        Log.d(TAG, "connected to $ssid")
+                                        callback()
+                                    } else {
+                                        Log.d(TAG, "connected to $ssid")
+                                        //disconnect from network
+                                        mWifiManager.disconnect()
+                                        //remove network
+                                        netId?.let {
+                                            mWifiManager.removeNetwork(it)
+                                        }
+                                    }
 
-                    Log.d(TAG, "new rssi is $rssi")
-                }
 
-                WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
-                    val info = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO) as NetworkInfo?
-                    info?.let {
-                        if (info.isConnected) {
-                            hadConnection = true
+                                    Log.d(TAG, "CONNECTED to wifi")
 
+                                } else if (info.isConnectedOrConnecting) {
+                                    Log.d(TAG, "is connecting to WIFI")
 
-                            Log.d(TAG, "CONNECTED to wifi")
+                                } else {
 
-                        } else if (info.isConnectedOrConnecting) {
-                            Log.d(TAG,"is connecting to WIFI")
+                                    Log.d(TAG, "Discoonected From WIFI")
+                                }
+                            }
 
-                        } else {
-
-                            Log.d(TAG,"Discoonected From WIFI")
                         }
+
                     }
 
                 }
-
             }
+            mContext.registerReceiver(wifiScanReceiver, intentFilter)
+        }else {
+            //check connected wifi android 10+
+            val networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    super.onAvailable(network)
+                    val networkCapabilities = cm.getNetworkCapabilities(network)
+                    networkCapabilities?.let {
+                        if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                            //check if network begins with "bse"
+//                            val ssid = mWifiManager.connectionInfo.ssid
 
+                            callback()
+
+                        }
+                    }
+                }
+            }
         }
     }
+
 
 
     fun unregisterCard(){

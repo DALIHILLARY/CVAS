@@ -399,11 +399,11 @@ class DaemonService : Service(), TextToSpeech.OnInitListener {
             NotifyChannel.createNotificationChannel(this@DaemonService)
         }
         val notificationIntent = Intent(this@DaemonService, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this@DaemonService,0,notificationIntent,0)
+        val pendingIntent = PendingIntent.getActivity(this@DaemonService,0,notificationIntent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(this@DaemonService,NotifyChannel.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle("CVAS")
-            .setContentText("Exploratory Service Running")
+            .setContentText("CVAS Service Running")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
